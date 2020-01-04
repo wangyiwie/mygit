@@ -1,20 +1,24 @@
 <template>
     <div>
+        <!--按钮-->
         <el-button size="small" type="success" @click="toAddHandler">添加</el-button>
-        <el-button size="small" type="danger" >批量删除</el-button>
+        <el-button size="small" type="danger">删除</el-button>
+        <!--/按钮-->
         <!--表格-->
-        <el-table :data="products"> 
+        <el-table :data="Orders.list"> 
             <el-table-column prop="id" label="编号"></el-table-column>
-            <el-table-column prop="name" label="产品名称"></el-table-column>
-            <el-table-column prop="price" label="价格"></el-table-column>
-            <el-table-column prop="description" label="描述"></el-table-column>
-            <el-table-column prop="categoryId" label="所属栏目="></el-table-column>
+            <el-table-column prop="orderTime" label="下单时间"></el-table-column>
+            <el-table-column prop="total" label="总价"></el-table-column>
+            <el-table-column prop="status" label="状态"></el-table-column>
+            <el-table-column prop="customerId" label="顾客编号"></el-table-column>
+            <el-table-column prop="waiterrId" label="员工编号"></el-table-column>
+            <el-table-column prop="addressId" label="地址编号"></el-table-column>
+
             <el-table-column label="操作">
                 <template v-slot="slot">
                     <!--阻止默认跳转-->
                     <a href="" @click.prevent="toUpdataHandler(slot.row)">修改</a>
                     <a href="" @click.prevent="toDeleteHandler(slot.row.id)">删除</a>
-                    <a href="">详情</a>
                 </template>
             </el-table-column>
         </el-table>
@@ -22,45 +26,28 @@
         <!--分页-->
         <el-pagination
             layout="prev, pager, next"
-            :total="50">
+            :total="Orders.total"
+            @current-change="pageChangeHandler">
         </el-pagination>
         <!--/分页-->
         <!--模态框-->
         <el-dialog
-            title="录入产品信息"
+            title="录入顾客信息"
             :visible.sync="visible"
             width="60%">
-            {{form}}
             <el-form ref="form" :model="form" label-width="80px">
-                <el-form-item label="产品名称">
-                    <el-input v-model="form.name"></el-input>
+                <el-form-item label="用户名">
+                    <el-input v-model="form.username"></el-input>
                 </el-form-item>
-                <el-form-item label="产品价格">
-                    <el-input v-model="form.price"></el-input>
+                <el-form-item label="密码">
+                    <el-input type="password" v-model="form.password"></el-input>
                 </el-form-item>
-                 <el-form-item label="产品描述">
-                    <el-input type="textarea" v-model="form.description"></el-input>
+                 <el-form-item label="真实姓名">
+                    <el-input v-model="form.realname"></el-input>
                 </el-form-item>
-                <el-form-item label="所属栏目">
-                    <el-select v-model="form.categoryId" placeholder="请选择">
-                        <el-option
-                        v-for="item in options"
-                        :key="item.id"
-                        :label="item.name"
-                        :value="item.id">
-                        </el-option>
-                    </el-select>
+                 <el-form-item label="手机号">
+                    <el-input v-model="form.telephone"></el-input>
                 </el-form-item>
-                <el-upload
-                    class="upload-demo"
-                    action="https://jsonplaceholder.typicode.com/posts/"
-                    :on-preview="handlePreview"
-                    :on-remove="handleRemove"
-                    :file-list="fileList"
-                    list-type="picture">
-                    <el-button size="small" type="primary">点击上传</el-button>
-                    <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过500kb</div>
-                </el-upload>
             </el-form>
             <span slot="footer" class="dialog-footer">
             <el-button @click="closeModelHandler" size="small">取 消</el-button>
@@ -75,29 +62,34 @@
 import request from '@/utils/request'
 import querystring, { stringify } from 'querystring'
 export default {
+    //用于存放要向网页中存放的方法
     methods:{
         loadData(){
-            let url = "http://localhost:6677/product/findAll"
-            request.get(url).then((response)=>{
-            // 将查询结果设置到customers中，this指向外部函数的this
-                this.products = response.data;
-            })
-        },
-        loadCategory(){
-            let url = "http://localhost:6677/category/findAll"
-            request.get(url).then((response)=>{
-            // 将查询结果设置到customers中，this指向外部函数的this
-                this.options = response.data;
+            let url = "http://localhost:6677/order/queryPage"
+            request({
+                url,
+                method:"POST",
+                headers:{
+                "Content-Type":"application/x-www-form-urlencoded"
+              },
+                data:querystring.stringify(this.params)
+            }).then((response)=>{
+              this.Orders=response.data;
             })
         },
         toAddHandler(){
             this.visible=true;
+             this.form={
+                 types:"costomer"
+            };
         },
         closeModelHandler(){
             this.visible=false;
         },
-        toUpdataHandler(){
+        toUpdataHandler(row){
             this.visible=true;
+            //模态框表单显示当前行的详细
+            this.form=row;
         },
         toDeleteHandler(id) {
             this.$confirm('此操作将永久删除该文件, 是否继续?', '提示', {
@@ -106,7 +98,7 @@ export default {
             type: 'warning'
             }).then(() => {
                 //alert(id);
-                let url="http://localhost:6677/product/deleteById?id="+id;
+                let url="http://localhost:6677/order/deleteById?id="+id;
                 request.get(url).then((response)=>{
                     this.loadData();
                     this.$message({
@@ -117,12 +109,12 @@ export default {
             });
         },
         submitHandler(){
-            //this.form 对象 ---字符串--> 后台 {type:'customer',age:12}
-            // json字符串 '{"type":"customer","age":12}'
+            //this.form 对象 ---字符串--> 后台 {type:'Order',age:12}
+            // json字符串 '{"type":"Order","age":12}'
             // request.post(url,this.form)
-            // 查询字符串 type=customer&age=12
+            // 查询字符串 type=Order&age=12
             // 通过request与后台进行交互，并且要携带参数
-            let url = "http://localhost:6677/product/saveOrUpdate";
+            let url = "http://localhost:6677/order/saveOrUpdate";
             request({
                 url,
                 method:"POST",
@@ -142,25 +134,30 @@ export default {
                 })
             })
         },
-        handleRemove(file, fileList) {
-            console.log(file, fileList);
-        },
-        handlePreview(file) {
-            console.log(file);
+        //当分页当前页改变是执行
+        pageChangeHandler(page){
+          //params中当前页改为插件中当前页
+          this.params.page=page-1;
+          //加载
+          this.loadData();
         }
     },
+    //用于存放要向网页中存放的数据
     data(){
         return {
             visible:false,
-            products:[],
-            fileList: [],
-            form:{},
-            options:[]
+            Orders:[],
+            form:{
+                type:"Order"
+            },
+            params:{
+              page:0,
+              pageSize:10
+            }
         }
     },
     created(){
         this.loadData();
-        this.loadCategory();
     }
 }
 </script>
